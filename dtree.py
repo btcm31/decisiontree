@@ -3,23 +3,27 @@ import pandas as pd
 import math
 
 class Node:
+    #label: The value of feature that its parent node split.
+    #attr: Best feature that node use to split the dataset.
+    #children: List of children nodes of current node.
+    #depth: depth of node.
     def __init__(self, label=None, attr=None, children = [], depth = 0):
         self.attr = attr
         self.label = label
         self.children = children
         self.depth = depth
+
 class DecisionTree:
+    #criterion: The function to measure the quality of a split. "gini" for the Gini impurity and "entropy" for the information gain.
+    #max_depth: The maximum depth of the tree. Defaule None, then nodes are expanded until all leaves are pure or until all leaves contain less than min_samples_split samples.
+    #min_samples_split: The minimum number of samples required to split an internal node.
     def __init__(self, criterion='entropy', max_depth=None, min_samples_split=2):
-        '''
-        criterion: ['gini', 'entropy']
-            + gini: CART
-            + entropy: ID3 (Iterative Dichotomiser 3)
-        '''
         self.criterion = criterion
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
-        self.root = None
+        self.root = None #root node of tree
     def _gini(self, attrs, label):
+        #Calculate Gini Index of a feature.
         uniqueValueofAttr = list(set(attrs))
         gini = 0.0
 
@@ -35,12 +39,14 @@ class DecisionTree:
         return gini
 
     def _entropy_calculate(self, lst):
+        #Calculate entropy of a feature.
         s = sum(lst)
         entropy = 0.0
         for i in lst:
             entropy -= i/s * math.log2(i/s)
         return entropy
     def _informationGain(self, attrs, label):
+        #Measure the decrease of entropy
         uniqueValueofAttr = list(set(attrs))
         uniqueLabel = list(set(label))
         entropy = self._entropy_calculate([list(label).count(i) for i in uniqueLabel])
@@ -61,31 +67,37 @@ class DecisionTree:
         best_attr = None
         children = []
         if len(lstAttrs) == 1:
-            return Node(label, attr=None, children=[Node(i, None ,children=[target[data[i].index].values[0]], depth=depth+1) for i in lstAttrs], depth = depth)
+            return Node(label, attr=lstAttrs[0], children=[Node(i, None ,children=[target[data[lstAttrs[0]].index].values[0]], depth=depth+1) for i in data[lstAttrs[0]].unique()], depth = depth)
 
         if self.criterion == 'gini':
             bestgini = 1.0
+            #Calculate Gini for each feature and choose feature with minimum Gini Index
             for i in lstAttrs:
                 gini = self._gini(data[i],target)
                 if gini <= bestgini:
                     best_attr = i
                     bestgini = gini
-            if bestgini == 0.0:
-                return label.unique()[0]
+            ''' if bestgini == 0.0:
+                print(target.unique())
+                return target.unique()[0] '''
         else:
-            bestentropy = 0.0
-
+            bestIG = 0.0
+            #Calculate InformationGain for each feature choose feature with maximum Information Gain
             for i in lstAttrs:
-                en = self._informationGain(data[i],target)
-                if en >= bestentropy:
+                ig = self._informationGain(data[i],target)
+                if ig >= bestIG:
                     best_attr = i
-                    bestentropy = en
-            if bestentropy == 1.0:
-                return label.unique()[0]
+                    bestIG = ig
+            ''' if bestIG == 1.0:
+                print(target.unique())
+                return target.unique()[0] '''
+
+        #Split data into subset
         for i in data[best_attr].unique():
             subdata = data[data[best_attr]==i].drop([best_attr], axis=1)
             subtarget = target.loc[subdata.index]
-            children.append(self._maketree(subdata, subtarget, depth+1, i))
+            temp = self._maketree(subdata, subtarget, depth+1, i)
+            children.append(temp if type(temp) == Node else Node(i, None, [temp], depth+1))
 
         return Node(label, best_attr, children, depth)
     def fit(self, data, target):
@@ -99,14 +111,14 @@ class DecisionTree:
         npoints = new_data.count()[0]
         labels = []
         for n in range(npoints):
-            x = new_data.iloc[n, :] # one point 
-            # start from root and recursively travel if not meet a leaf 
+            x = new_data.iloc[n, :]
             node = self.root
-            while node.attr: 
+            while type(node) != str and node.attr: 
                 lb = new_data.iloc[n][node.attr]
-                node = [i for i in node.children if i.label == lb][0]
+                lst_child = [i for i in node.children if i.label == lb] 
+                node = lst_child[0] if len(lst_child) > 0 else node.children[0]
 
-            labels.append(node.children[0].children[0])
+            labels.append(node if type(node) == str else node.children[0])
             
         return labels
 
@@ -117,7 +129,7 @@ if __name__ == "__main__":
     y = data.iloc[:,-1]
     clf = DecisionTree()
     clf.fit(X,y)
-    newdata = pd.read_csv('pre.csv')
+    newdata = pd.read_csv('predict.csv')
     print(clf.predict(newdata))
 
 
