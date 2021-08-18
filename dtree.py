@@ -94,9 +94,20 @@ class DecisionTree:
 
         #Split data into subset
         for i in data[best_attr].unique():
+            #get subdata corresponding to data[best_attr] = i
             subdata = data[data[best_attr]==i].drop([best_attr], axis=1)
             subtarget = target.loc[subdata.index]
-            temp = self._maketree(subdata, subtarget, depth+1, i)
+
+            temp = None
+            if not self.max_depth or depth < self.max_depth:
+                temp = self._maketree(subdata, subtarget, depth+1, i)
+            else:
+                #if depth == maxdepth, return target with the most frequency
+                idx = data[data[best_attr]==i].index
+                target_most = np.array(target.loc[idx].values)
+                unique, counts = np.unique(target_most, return_counts = True)
+                #get target with the most frequent
+                temp = unique[np.argmax(counts)]
             children.append(temp if type(temp) == Node else Node(i, None, [temp], depth+1))
 
         return Node(label, best_attr, children, depth)
@@ -106,7 +117,7 @@ class DecisionTree:
         self.target = target
         self.labels = target.unique()
 
-        self.root = self._maketree(data, target, 0, 'root')
+        self.root = self._maketree(data, target, 1, 'root')
     def predict(self, new_data):
         npoints = new_data.count()[0]
         labels = []
@@ -127,7 +138,7 @@ if __name__ == "__main__":
     data = pd.read_csv('weather.csv')
     X = data.iloc[:,1:-1]
     y = data.iloc[:,-1]
-    clf = DecisionTree()
+    clf = DecisionTree(max_depth=2)
     clf.fit(X,y)
     newdata = pd.read_csv('predict.csv')
     print(clf.predict(newdata))
